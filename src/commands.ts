@@ -1,6 +1,4 @@
-import { setUser } from "./config";
-
-export type CommandHandler = (cmdName: string, ...args: string[]) => void;
+export type CommandHandler = (cmdName: string, ...args: string[]) => Promise<void>;
 export type CommandRegistry = Map<string, CommandHandler>;
 
 export function registerCommand(registry: CommandRegistry, cmdName: string, handler: CommandHandler) : void
@@ -8,7 +6,7 @@ export function registerCommand(registry: CommandRegistry, cmdName: string, hand
     registry.set(cmdName, handler);
 }
 
-export function runCommand(registry: CommandRegistry, cmdName: string, ...args: string[]) : void 
+export async function runCommand(registry: CommandRegistry, cmdName: string, ...args: string[]) : Promise<void> 
 {
     const handler = registry.get(cmdName);
 
@@ -16,6 +14,6 @@ export function runCommand(registry: CommandRegistry, cmdName: string, ...args: 
         throw Error(`Command "${cmdName}" not registered`)
     }
 
-    handler(cmdName, ...args);
+    return await handler(cmdName, ...args);
 }
 
