@@ -1,7 +1,7 @@
-import { setUser } from "./config";
+import { readConfig, setUser } from "./config";
 import { CommandHandler, CommandRegistry, registerCommand, runCommand } from "./commands";
 import { exit } from "node:process";
-import { createUser, getUserByName } from "./db/queries/users"
+import { createUser, deleteAllUsers, getAllUsers, getUserByName } from "./db/queries/users"
 
 async function loginHandler(cmdName: string, ...args: string[]) : Promise<void>
 {
@@ -46,12 +46,33 @@ async function registerHandler(cmdName: string, ...args: string[]) : Promise<voi
 	console.log(`User ${newUserName} was created succesfully`)
 }
 
+async function resetHandler(cmdName: string, ...args: string[]) : Promise<void>
+{
+	console.log("Reseting database");
+	console.log("Removing all users from user table...")
+	await deleteAllUsers();
+	console.log("All users removed")
+}
+
+async function usersHandler(cmdName: string, ...args: string[]) : Promise<void>
+{
+	const allUsers = await getAllUsers();
+	const config = readConfig();
+	
+	allUsers.forEach(element => {
+		console.log(`* ${element.name} ${config.currentUserName === element.name ? "(current)" : ""}`)
+	});
+}
+
 async function main() {
 	try {
 
 		let registry: CommandRegistry = new Map<string, CommandHandler>();
 		registerCommand(registry, "login", loginHandler);
 		registerCommand(registry, "register", registerHandler);
+		registerCommand(registry, "reset", resetHandler);
+		registerCommand(registry, "users", usersHandler);
+
 
 		const cmdName = process.argv.at(2);
 		if (cmdName === undefined) {
