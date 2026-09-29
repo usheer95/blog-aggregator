@@ -7,6 +7,8 @@ import { is } from "drizzle-orm";
 import { isArray } from "node:util";
 import { el } from "zod/v4/locales";
 import { sparsevec } from "drizzle-orm/pg-core";
+import { createFeed } from "./db/queries/feeds";
+import { User } from "./db/schema";
 
 async function loginHandler(cmdName: string, ...args: string[]) : Promise<void>
 {
@@ -39,9 +41,9 @@ async function registerHandler(cmdName: string, ...args: string[]) : Promise<voi
 	}
 
 	// Check if user already exists 
-	let userCheck = await getUserByName(newUserName);
+	let userCheck: User | undefined = await getUserByName(newUserName);
 
-	if (userCheck.length > 0) {
+	if (userCheck !== undefined) {
 		throw Error(`Unable to register user as ${newUserName} is already registered`)
 	}
 
@@ -76,6 +78,32 @@ async function aggHandler(cmdName: string, ...args: string[]) : Promise<void>
 	console.log(JSON.stringify(feed, null, 4))
 }
 
+async function addFeedHandler(cmdName: string, ...args: string[]) : Promise<void>
+{
+	if (args.length != 2) {
+		throw new Error("Add feed expects two args {name: string} and {url: string}");
+	}
+
+	const currentUserName: string = readConfig().currentUserName;
+	const currentUser: User | undefined = await getUserByName(currentUserName);
+
+	if (currentUser === undefined) {
+		throw new Error("Unable to retreive current user from db")
+	}
+
+	const name = args.at(0) as string;
+	const url = args.at(1) as string;
+
+	console.log("Adding new feed...");
+	const createdFeed = await createFeed(name, url, currentUser.id);
+
+	if (createdFeed === undefined) {
+		console.log("Failed to add new feed.");
+	} else {
+		console.log("New feed added succesfully");
+	}
+}
+
 async function main() 
 {
 	try {
@@ -86,6 +114,8 @@ async function main()
 		registerCommand(registry, "reset", resetHandler);
 		registerCommand(registry, "users", usersHandler);
 		registerCommand(registry, "agg", aggHandler);
+		registerCommand(registry, "addfeed", addFeedHandler);
+
 
 		const cmdName = process.argv.at(2);
 		if (cmdName === undefined) {

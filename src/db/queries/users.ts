@@ -1,5 +1,5 @@
 import { db } from "..";
-import { users } from "../schema";
+import { users, User} from "../schema";
 import { eq } from "drizzle-orm";
 
 export async function createUser(name: string) {
@@ -9,7 +9,7 @@ export async function createUser(name: string) {
 
 export async function getUserByName(name: string) {
     const user = await db.select().from(users).where(eq(users.name, name));
-    return user;
+    return user.at(0) as User | undefined;
 }
 
 export async function deleteAllUsers() {
