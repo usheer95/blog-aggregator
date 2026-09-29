@@ -2,6 +2,11 @@ import { readConfig, setUser } from "./config";
 import { CommandHandler, CommandRegistry, registerCommand, runCommand } from "./commands";
 import { exit } from "node:process";
 import { createUser, deleteAllUsers, getAllUsers, getUserByName } from "./db/queries/users"
+import { fetchRSSFeed, RSSFeed, RSSItem } from "./rss";
+import { is } from "drizzle-orm";
+import { isArray } from "node:util";
+import { el } from "zod/v4/locales";
+import { sparsevec } from "drizzle-orm/pg-core";
 
 async function loginHandler(cmdName: string, ...args: string[]) : Promise<void>
 {
@@ -64,7 +69,15 @@ async function usersHandler(cmdName: string, ...args: string[]) : Promise<void>
 	});
 }
 
-async function main() {
+async function aggHandler(cmdName: string, ...args: string[]) : Promise<void>
+{
+	const feed: RSSFeed = await fetchRSSFeed("https://www.wagslane.dev/index.xml");
+
+	console.log(JSON.stringify(feed, null, 4))
+}
+
+async function main() 
+{
 	try {
 
 		let registry: CommandRegistry = new Map<string, CommandHandler>();
@@ -72,7 +85,7 @@ async function main() {
 		registerCommand(registry, "register", registerHandler);
 		registerCommand(registry, "reset", resetHandler);
 		registerCommand(registry, "users", usersHandler);
-
+		registerCommand(registry, "agg", aggHandler);
 
 		const cmdName = process.argv.at(2);
 		if (cmdName === undefined) {
