@@ -1,14 +1,15 @@
 import { readConfig, setUser } from "./config";
 import { CommandHandler, CommandRegistry, registerCommand, runCommand } from "./commands";
 import { exit } from "node:process";
-import { createUser, deleteAllUsers, getAllUsers, getUserByName } from "./db/queries/users"
+import { createUser, deleteAllUsers, getAllUsers, getUserByID, getUserByName } from "./db/queries/users"
 import { fetchRSSFeed, RSSFeed, RSSItem } from "./rss";
 import { is } from "drizzle-orm";
 import { isArray } from "node:util";
 import { el } from "zod/v4/locales";
 import { sparsevec } from "drizzle-orm/pg-core";
-import { createFeed } from "./db/queries/feeds";
-import { User } from "./db/schema";
+import { createFeed, getAllFeeds } from "./db/queries/feeds";
+import { Feed, User } from "./db/schema";
+import { allowsEval } from "zod/v4/core/util.cjs";
 
 async function loginHandler(cmdName: string, ...args: string[]) : Promise<void>
 {
@@ -101,7 +102,27 @@ async function addFeedHandler(cmdName: string, ...args: string[]) : Promise<void
 		console.log("Failed to add new feed.");
 	} else {
 		console.log("New feed added succesfully");
+		printFeed(createdFeed, currentUser);
 	}
+}
+
+async function feedsHandler(cmdName: string, ...args: string[]) : Promise<void>
+{
+	const allFeeds = await getAllFeeds();
+
+	for (const feed of allFeeds) {
+		const user: User | undefined = await getUserByID(feed.userId);
+		if (user !== undefined) {
+			printFeed(feed, user);
+		} else {
+			throw new Error("Failed to get user from feed user id");
+		}
+	}
+}
+
+function printFeed(feed: Feed, user: User) 
+{
+	console.log(`User: ${user.name} | Feed: ${feed.name} , ${feed.url}`)
 }
 
 async function main() 
@@ -115,6 +136,7 @@ async function main()
 		registerCommand(registry, "users", usersHandler);
 		registerCommand(registry, "agg", aggHandler);
 		registerCommand(registry, "addfeed", addFeedHandler);
+		registerCommand(registry, "feeds", feedsHandler);
 
 
 		const cmdName = process.argv.at(2);
