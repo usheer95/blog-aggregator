@@ -1,6 +1,8 @@
 import {db} from ".."
 import { feedFollow, FeedFollow, users, feeds} from "../schema"
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
+import { getFeedByUrl } from "./feeds";
+import { url } from "node:inspector";
 
 type CreatedFollow = { id: string, createdAt: Date, updatedAt: Date, userName: string, feedName: string }
 
@@ -39,4 +41,14 @@ export async function getFeedFollowsForUser(userId: string)
     .innerJoin(users, eq(feedFollow.userId, users.id))
 
     return query;
+}
+
+export async function deleteFeedFollow(userId: string, feedUrl: string)
+{
+    const feed = await getFeedByUrl(feedUrl);
+    if (feed) {
+        const query = await db.delete(feedFollow).where(and(eq(feedFollow.userId, userId), eq(feedFollow.feedId, feed.id)))
+    } else {
+        throw new Error("Failed to find feed with given URL.")
+    }
 }

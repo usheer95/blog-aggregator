@@ -5,7 +5,7 @@ import { createUser, deleteAllUsers, getAllUsers, getUserByID, getUserByName } f
 import { fetchRSSFeed, RSSFeed } from "./rss";
 import { createFeed, getAllFeeds, getFeedByUrl } from "./db/queries/feeds";
 import { Feed, User, users } from "./db/schema";
-import { createFeedFollow, getFeedFollowsForUser } from "./db/queries/feedFollow";
+import { createFeedFollow, deleteFeedFollow, getFeedFollowsForUser } from "./db/queries/feedFollow";
 
 async function loginHandler(cmdName: string, ...args: string[]) : Promise<void>
 {
@@ -140,6 +140,21 @@ async function followingHandler(cmdName: string, user: User, ...args: string[]) 
 	}
 }
 
+async function unfollowHandler(cmdName: string, user: User, ...args: string[]) : Promise<void>
+{
+	if(args.length !== 1) {
+		throw new Error("follow expects args {url: string}");
+	}
+
+	const url: string | undefined = args.at(0);
+	if (url === undefined) {
+		throw new Error("url is undefined");
+	}	
+
+	await deleteFeedFollow(user.id, url);
+	console.log(`unfollowed from ${url}`);
+}
+
 function printFeed(feed: Feed, user: User) 
 {
 	console.log(`User: ${user.name} | Feed: ${feed.name} , ${feed.url}`);
@@ -176,6 +191,7 @@ async function main()
 		registerCommand(registry, "addfeed", middlewareLoggedIn(addFeedHandler));
 		registerCommand(registry, "follow", middlewareLoggedIn(followHandler));
 		registerCommand(registry, "following", middlewareLoggedIn(followingHandler));
+		registerCommand(registry, "unfollow", middlewareLoggedIn(unfollowHandler));
 
 		const cmdName = process.argv.at(2);
 		if (cmdName === undefined) {
