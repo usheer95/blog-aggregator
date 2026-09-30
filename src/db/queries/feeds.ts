@@ -20,3 +20,9 @@ export async function getFeedByID(id: string) : Promise<Feed>
     const [feed] = await db.select().from(feeds).where(eq(feeds.id, id));
     return feed as Feed;
 }
+
+export async function getFeedByUrl(url: string) : Promise<Feed | undefined> 
+{
+    const [feed] = await db.select().from(feeds).where(eq(feeds.url, url));
+    return feed;
+}

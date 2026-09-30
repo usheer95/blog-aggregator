@@ -3,8 +3,10 @@ import { CommandHandler, CommandRegistry, registerCommand, runCommand } from "./
 import { exit } from "node:process";
 import { createUser, deleteAllUsers, getAllUsers, getUserByID, getUserByName } from "./db/queries/users"
 import { fetchRSSFeed, RSSFeed } from "./rss";
-import { createFeed, getAllFeeds } from "./db/queries/feeds";
+import { createFeed, getAllFeeds, getFeedByUrl } from "./db/queries/feeds";
 import { Feed, User, users } from "./db/schema";
+import { ar } from "zod/v4/locales";
+import { createFeedFollow, getFeedFollowsForUser } from "./db/queries/feedFollow";
 
 async function loginHandler(cmdName: string, ...args: string[]) : Promise<void>
 {
@@ -96,6 +98,7 @@ async function addFeedHandler(cmdName: string, ...args: string[]) : Promise<void
 		console.log("Failed to add new feed.");
 	} else {
 		console.log("New feed added succesfully");
+		await createFeedFollow(createdFeed.userId, createdFeed.id);
 		printFeed(createdFeed, currentUser);
 	}
 }
@@ -114,7 +117,51 @@ async function feedsHandler(cmdName: string, ...args: string[]) : Promise<void>
 	}
 }
 
+async function followHandler(cmdName: string, ...args: string[]) : Promise<void>
+{
+	// Check url arg is there
+	if(args.length !== 1) {
+		throw new Error("follow expects args {url: string}");
+	}
 
+	const url: string | undefined = args.at(0);
+	if (url === undefined) {
+		throw new Error("url is undefined");
+	}
+
+	// Does the feed exist to be able to follow?
+	const feed: Feed | undefined = await getFeedByUrl(url);
+	if (feed === undefined) { 
+		throw new Error("Unable to follow as feed does not exist");
+	}
+
+	const currentUserName: string = readConfig().currentUserName;
+	const currentUser: User | undefined = await getUserByName(currentUserName);
+	
+	if (currentUser === undefined) {
+		throw new Error("Unable to follow a feed a no user logged");
+	}
+
+	const createdFollow = await createFeedFollow(currentUser.id, feed.id);
+	console.log(`Created new follow for ${createdFollow.userName} -> ${createdFollow.feedName}`);
+}
+
+async function followingHandler(cmdName: string, ...args: string[]) : Promise<void>
+{
+	const currentUserName: string = readConfig().currentUserName;
+	const currentUser: User | undefined = await getUserByName(currentUserName);
+	
+	if (currentUser === undefined) {
+		throw new Error("Unable to get following list no user logged");
+	}
+
+	const following = await getFeedFollowsForUser(currentUser.id);
+
+	console.log("Following:")
+	for(const follow of following) {
+		console.log(`* ${follow.feedName}`);
+	}
+}
 
 function printFeed(feed: Feed, user: User) 
 {
@@ -133,7 +180,8 @@ async function main()
 		registerCommand(registry, "agg", aggHandler);
 		registerCommand(registry, "addfeed", addFeedHandler);
 		registerCommand(registry, "feeds", feedsHandler);
-
+		registerCommand(registry, "follow", followHandler);
+		registerCommand(registry, "following", followingHandler);
 
 		const cmdName = process.argv.at(2);
 		if (cmdName === undefined) {
