@@ -3,10 +3,10 @@ import { db } from "..";
 import { Feed, feeds } from "../schema";
 import { eq } from "drizzle-orm";
 
-export async function createFeed(name: string, url: string, userId: string) : Promise<Feed | undefined>
+export async function createFeed(name: string, url: string, userId: string) : Promise<Feed>
 {
     const [feed] = await db.insert(feeds).values({name: name, url: url, userId: userId}).returning();
-    return feed as Feed | undefined;
+    return feed as Feed;
 }
 
 export async function getAllFeeds() : Promise<Array<Feed>>

@@ -1,11 +1,10 @@
 import { readConfig, setUser } from "./config";
-import { CommandHandler, CommandRegistry, registerCommand, runCommand } from "./commands";
+import { CommandHandler, CommandRegistry, registerCommand, runCommand, UserCommandHandler } from "./commands";
 import { exit } from "node:process";
 import { createUser, deleteAllUsers, getAllUsers, getUserByID, getUserByName } from "./db/queries/users"
 import { fetchRSSFeed, RSSFeed } from "./rss";
 import { createFeed, getAllFeeds, getFeedByUrl } from "./db/queries/feeds";
 import { Feed, User, users } from "./db/schema";
-import { ar } from "zod/v4/locales";
 import { createFeedFollow, getFeedFollowsForUser } from "./db/queries/feedFollow";
 
 async function loginHandler(cmdName: string, ...args: string[]) : Promise<void>
@@ -75,31 +74,23 @@ async function aggHandler(cmdName: string, ...args: string[]) : Promise<void>
 	console.log(JSON.stringify(feed, null, 4))
 }
 
-async function addFeedHandler(cmdName: string, ...args: string[]) : Promise<void>
+async function addFeedHandler(cmdName: string, user: User, ...args: string[]) : Promise<void>
 {
 	if (args.length != 2) {
 		throw new Error("Add feed expects two args {name: string} and {url: string}");
 	}
 
-	const currentUserName: string = readConfig().currentUserName;
-	let currentUser = await getUserByName(currentUserName);
-
-	if (currentUser === undefined) {
-		throw new Error("Unable to retreive current user from db")
-	}
-
 	const name = args.at(0) as string;
 	const url = args.at(1) as string;
 
-	console.log("Adding new feed...");
-	const createdFeed = await createFeed(name, url, currentUser.id);
+	const createdFeed = await createFeed(name, url, user.id);
 
-	if (createdFeed === undefined) {
+	if (!createdFeed) {
 		console.log("Failed to add new feed.");
 	} else {
 		console.log("New feed added succesfully");
 		await createFeedFollow(createdFeed.userId, createdFeed.id);
-		printFeed(createdFeed, currentUser);
+		printFeed(createdFeed, user);
 	}
 }
 
@@ -117,7 +108,7 @@ async function feedsHandler(cmdName: string, ...args: string[]) : Promise<void>
 	}
 }
 
-async function followHandler(cmdName: string, ...args: string[]) : Promise<void>
+async function followHandler(cmdName: string, user: User, ...args: string[]) : Promise<void>
 {
 	// Check url arg is there
 	if(args.length !== 1) {
@@ -135,27 +126,13 @@ async function followHandler(cmdName: string, ...args: string[]) : Promise<void>
 		throw new Error("Unable to follow as feed does not exist");
 	}
 
-	const currentUserName: string = readConfig().currentUserName;
-	const currentUser: User | undefined = await getUserByName(currentUserName);
-	
-	if (currentUser === undefined) {
-		throw new Error("Unable to follow a feed a no user logged");
-	}
-
-	const createdFollow = await createFeedFollow(currentUser.id, feed.id);
+	const createdFollow = await createFeedFollow(user.id, feed.id);
 	console.log(`Created new follow for ${createdFollow.userName} -> ${createdFollow.feedName}`);
 }
 
-async function followingHandler(cmdName: string, ...args: string[]) : Promise<void>
+async function followingHandler(cmdName: string, user: User, ...args: string[]) : Promise<void>
 {
-	const currentUserName: string = readConfig().currentUserName;
-	const currentUser: User | undefined = await getUserByName(currentUserName);
-	
-	if (currentUser === undefined) {
-		throw new Error("Unable to get following list no user logged");
-	}
-
-	const following = await getFeedFollowsForUser(currentUser.id);
+	const following = await getFeedFollowsForUser(user.id);
 
 	console.log("Following:")
 	for(const follow of following) {
@@ -168,6 +145,21 @@ function printFeed(feed: Feed, user: User)
 	console.log(`User: ${user.name} | Feed: ${feed.name} , ${feed.url}`);
 }
 
+function middlewareLoggedIn(handler: UserCommandHandler) : CommandHandler
+{
+
+	return async function (cmdName, ...args) {
+		const loggedInUserName: string = readConfig().currentUserName;
+		let loggedInUser = await getUserByName(loggedInUserName);
+
+		if (!loggedInUser) {
+			throw new Error("No user currently logged in")
+		}
+
+		await handler(cmdName, loggedInUser, ...args);
+	};
+}
+
 async function main() 
 {
 	try {
@@ -177,11 +169,13 @@ async function main()
 		registerCommand(registry, "register", registerHandler);
 		registerCommand(registry, "reset", resetHandler);
 		registerCommand(registry, "users", usersHandler);
-		registerCommand(registry, "agg", aggHandler);
-		registerCommand(registry, "addfeed", addFeedHandler);
 		registerCommand(registry, "feeds", feedsHandler);
-		registerCommand(registry, "follow", followHandler);
-		registerCommand(registry, "following", followingHandler);
+
+		registerCommand(registry, "agg", aggHandler);
+
+		registerCommand(registry, "addfeed", middlewareLoggedIn(addFeedHandler));
+		registerCommand(registry, "follow", middlewareLoggedIn(followHandler));
+		registerCommand(registry, "following", middlewareLoggedIn(followingHandler));
 
 		const cmdName = process.argv.at(2);
 		if (cmdName === undefined) {
