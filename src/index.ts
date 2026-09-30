@@ -2,14 +2,9 @@ import { readConfig, setUser } from "./config";
 import { CommandHandler, CommandRegistry, registerCommand, runCommand } from "./commands";
 import { exit } from "node:process";
 import { createUser, deleteAllUsers, getAllUsers, getUserByID, getUserByName } from "./db/queries/users"
-import { fetchRSSFeed, RSSFeed, RSSItem } from "./rss";
-import { is } from "drizzle-orm";
-import { isArray } from "node:util";
-import { el } from "zod/v4/locales";
-import { sparsevec } from "drizzle-orm/pg-core";
+import { fetchRSSFeed, RSSFeed } from "./rss";
 import { createFeed, getAllFeeds } from "./db/queries/feeds";
-import { Feed, User } from "./db/schema";
-import { allowsEval } from "zod/v4/core/util.cjs";
+import { Feed, User, users } from "./db/schema";
 
 async function loginHandler(cmdName: string, ...args: string[]) : Promise<void>
 {
@@ -23,12 +18,11 @@ async function loginHandler(cmdName: string, ...args: string[]) : Promise<void>
         throw Error("Failed to get username from given argument");
     }
 
-	let userCheck = await getUserByName(userName);
-
-	if (userCheck.length === 0) {
+	const user = await getUserByName(userName);
+	if (user === undefined) {
 		throw Error("Unable to login as user is not registered in the database");
 	}
-
+	
     setUser(userName);
     console.log(`User ${userName} login successful`);
 }
@@ -86,7 +80,7 @@ async function addFeedHandler(cmdName: string, ...args: string[]) : Promise<void
 	}
 
 	const currentUserName: string = readConfig().currentUserName;
-	const currentUser: User | undefined = await getUserByName(currentUserName);
+	let currentUser = await getUserByName(currentUserName);
 
 	if (currentUser === undefined) {
 		throw new Error("Unable to retreive current user from db")
@@ -120,9 +114,11 @@ async function feedsHandler(cmdName: string, ...args: string[]) : Promise<void>
 	}
 }
 
+
+
 function printFeed(feed: Feed, user: User) 
 {
-	console.log(`User: ${user.name} | Feed: ${feed.name} , ${feed.url}`)
+	console.log(`User: ${user.name} | Feed: ${feed.name} , ${feed.url}`);
 }
 
 async function main() 

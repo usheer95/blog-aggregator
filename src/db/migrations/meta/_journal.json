@@ -22,6 +22,20 @@
       "when": 1790676297093,
       "tag": "0002_sturdy_skin",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1790755126937,
+      "tag": "0003_chilly_warbird",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1790756310463,
+      "tag": "0004_cute_rogue",
+      "breakpoints": true
     }
   ]
 }
