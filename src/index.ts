@@ -5,11 +5,8 @@ import { createUser, deleteAllUsers, getAllUsers, getUserByID, getUserByName } f
 import { createFeed, getAllFeeds, getFeedByUrl } from "./db/queries/feeds";
 import { Feed, User } from "./db/schema";
 import { createFeedFollow, deleteFeedFollow, getFeedFollowsForUser } from "./db/queries/feedFollow";
-import { aggregateFeed, AggResult} from "./aggregate-feed";
-import { RSSItem } from "./rss";
-import { resolve } from "node:dns";
-import { int, number, record } from "zod";
-import { ar } from "zod/v4/locales";
+import { aggregateFeed} from "./aggregate-feed";
+import { getPostForUser } from "./db/queries/posts";
 
 async function loginHandler(cmdName: string, ...args: string[]) : Promise<void>
 {
@@ -220,6 +217,29 @@ async function unfollowHandler(cmdName: string, user: User, ...args: string[]) :
 	console.log(`unfollowed from ${url}`);
 }
 
+async function browseHandler(cmdName: string, user: User, ...args: string[]) : Promise<void>
+{
+	// Number of posts to show if given else defualt to 2
+	let numOfPostsToShow: number = 2
+	if (args.length > 0) {
+		numOfPostsToShow = Number(args[0]);
+		if (Number.isNaN(numOfPostsToShow)) {
+			throw new Error("browse command expect a number {numOfPostsToShow: number}");
+		}
+	} 
+
+	const posts = await getPostForUser(user.id, numOfPostsToShow);
+
+	console.log("Posts: ")
+
+	for (const post of posts) {
+		console.log(`Post: ${post.title}\nFrom: ${post.publishedAt}`);
+		console.log(`* ${post.description}`);
+		console.log(`--------------------------------------------------------------`);
+	}
+	
+}
+
 function printFeed(feed: Feed, user: User) 
 {
 	console.log(`User: ${user.name} | Feed: ${feed.name} , ${feed.url}`);
@@ -257,6 +277,8 @@ async function main()
 		registerCommand(registry, "follow", middlewareLoggedIn(followHandler));
 		registerCommand(registry, "following", middlewareLoggedIn(followingHandler));
 		registerCommand(registry, "unfollow", middlewareLoggedIn(unfollowHandler));
+		registerCommand(registry, "browse", middlewareLoggedIn(browseHandler));
+		
 
 		const cmdName = process.argv.at(2);
 		if (cmdName === undefined) {

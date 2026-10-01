@@ -6,7 +6,7 @@ const RSSItemSchema = z.object({
     title: z.string(),
     link: z.string(),
     description: z.string(),
-    pubDate: z.string(),
+    pubDate: z.coerce.date(),
 });
 
 const RSSItemArraySchema = z.preprocess(

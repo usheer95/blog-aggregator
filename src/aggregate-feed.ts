@@ -1,6 +1,7 @@
 import { getNextFeedToFetch, markFeedFetched } from "./db/queries/feeds";
 import { fetchRSSFeed, RSSItem, RSSFeed } from "./rss";
 import { Feed } from "./db/schema"
+import { createPost } from "./db/queries/posts";
 
 export type AggResult = {success: true, data: Array<RSSItem>} | {success: false, error: string }
 
@@ -18,7 +19,12 @@ export async function aggregateFeed() : Promise<void>
 
         const items: Array<RSSItem> = rssFeed.channel.item;
         for (const item of items) {
-            console.log(`* ${item.title}`);
+            try {
+                await createPost(item, nextFeedToFetch.id);
+                console.log(`Adding new post "${item.title}" to database...`);
+            } catch(error) {
+                continue;
+            } 
         } 
     } catch(error: any) {
         throw new Error(`Failed to fetch feed ${error}`);
