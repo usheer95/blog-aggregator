@@ -35,15 +35,17 @@ export type RSSItem = z.infer<typeof RSSItemSchema>;
 
 export async function fetchRSSFeed(feedURL: string) : Promise<RSSFeed>
 {   
+    console.log(`Fetching from ${feedURL}...`);
     const response : Response = await fetch(feedURL, {
         method: "GET",
         headers: {
-            "User-Agent": "gator",
+            'User-Agent': "gator",
+            'Accept': 'application/rss+xml, application/xml;q=0.9'
         }
     });
 
     if (!response.ok){
-        throw new Error(`Failed to fetch from ${feedURL}, status: ${response.status}`)
+        throw new Error(`Failed to fetch from ${feedURL}`);
     }
 
     const rawFeed: string = await response.text();

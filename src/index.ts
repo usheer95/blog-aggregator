@@ -2,10 +2,14 @@ import { readConfig, setUser } from "./config";
 import { CommandHandler, CommandRegistry, registerCommand, runCommand, UserCommandHandler } from "./commands";
 import { exit } from "node:process";
 import { createUser, deleteAllUsers, getAllUsers, getUserByID, getUserByName } from "./db/queries/users"
-import { fetchRSSFeed, RSSFeed } from "./rss";
 import { createFeed, getAllFeeds, getFeedByUrl } from "./db/queries/feeds";
-import { Feed, User, users } from "./db/schema";
+import { Feed, User } from "./db/schema";
 import { createFeedFollow, deleteFeedFollow, getFeedFollowsForUser } from "./db/queries/feedFollow";
+import { aggregateFeed, AggResult} from "./aggregate-feed";
+import { RSSItem } from "./rss";
+import { resolve } from "node:dns";
+import { int, number, record } from "zod";
+import { ar } from "zod/v4/locales";
 
 async function loginHandler(cmdName: string, ...args: string[]) : Promise<void>
 {
@@ -67,11 +71,72 @@ async function usersHandler(cmdName: string, ...args: string[]) : Promise<void>
 	});
 }
 
+function parseDuration(duration: string) : number
+{
+	const regex = /^(\d+)(ms|s|m|h)$/;
+	const match = duration.match(regex);
+
+	if(!match) {
+		throw new Error("Invalid duration given. Expected forms [1s, 1m, 1h] etc...");
+	}
+
+	const time = match[1];
+	if (!time) {
+		throw new Error("Failed to parse the duration value")
+	}
+
+	const convertedtime: number = Number(time);
+	if (Number.isNaN(convertedtime)) {
+		throw new Error("Failed to parse the duration value")
+	}
+
+	const unitOfTime = match[2];
+	if (!unitOfTime) {
+		throw new Error("Failed to parse the unit of time for given duration")
+	}
+
+	const unitOfTimeToMillisecondsMultiplier: Record<string, number> = {
+		"ms": 1,
+		"s": 1000,
+		"m": 60000,
+		"h": 3600000,
+	};
+
+	const unitOfTimeMultiplier = unitOfTimeToMillisecondsMultiplier[unitOfTime];
+	if(!unitOfTimeMultiplier) {
+		throw new Error("Failed to parse the unit of time for given duration")
+	}
+
+	const durationInMilliseconds = convertedtime * unitOfTimeMultiplier;
+	
+	return durationInMilliseconds;
+}
+
 async function aggHandler(cmdName: string, ...args: string[]) : Promise<void>
 {
-	const feed: RSSFeed = await fetchRSSFeed("https://www.wagslane.dev/index.xml");
+	if (args.length != 1) {
+		throw new Error("agg command expects 1 argument {time_between_requests}")
+	}
 
-	console.log(JSON.stringify(feed, null, 4))
+	const duration: string | undefined = args.at(0);
+
+	if (!duration) {
+		throw new Error("time_between_requests is undefined");
+	}
+
+	const intervalTimeMs: number = parseDuration(duration);
+
+	const interval = setInterval(() => {
+		aggregateFeed().catch((error: any) => console.log(error));
+	}, intervalTimeMs);
+
+	await new Promise<void>((resolve) => {
+		process.on("SIGINT", () => {
+			console.log("Shutting down feed aggregator...");
+			clearInterval(interval);
+			resolve();
+		})
+	});
 }
 
 async function addFeedHandler(cmdName: string, user: User, ...args: string[]) : Promise<void>

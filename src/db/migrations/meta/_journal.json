@@ -36,6 +36,20 @@
       "when": 1790756310463,
       "tag": "0004_cute_rogue",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1790843633329,
+      "tag": "0005_cloudy_squirrel_girl",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1790843675718,
+      "tag": "0006_confused_marauders",
+      "breakpoints": true
     }
   ]
 }
